@@ -24,7 +24,7 @@ class SSD(nn.Module):
         head: "multibox head" consists of loc and conf conv layers
     """
 
-    def __init__(self, phase, base, extras, head, num_classes):
+    def __init__(self, phase, base, branch4_3, extras, head, num_classes):
         super(SSD, self).__init__()
         self.phase = phase
         self.num_classes = num_classes
@@ -37,6 +37,7 @@ class SSD(nn.Module):
         self.vgg = nn.ModuleList(base)
         # Layer learns to scale the l2 normalized features from conv4_3
         self.L2Norm = L2Norm(512, 20)
+        self.branch4_3 = nn.ModuleList(branch4_3)
         self.extras = nn.ModuleList(extras)
 
         self.loc = nn.ModuleList(head[0])
@@ -73,8 +74,17 @@ class SSD(nn.Module):
         for k in range(23):
             x = self.vgg[k](x)
 
-        s = self.L2Norm(x)
-        sources.append(s)
+        # s = self.L2Norm(x)
+        # sources.append(s)
+
+        # apply branch4_3 on layer conv4_3 relu
+        for k, v in enumerate(self.branch4_3):
+            if k == 0:
+                b = F.relu(v(x), inplace=True)
+            else:
+                b = F.relu(v(b), inplace=True)
+        b = self.L2Norm(b)
+        sources.append(b)
 
         # apply vgg up to fc7
         for k in range(23, len(self.vgg)):
@@ -142,6 +152,11 @@ def vgg(cfg, i, batch_norm=False):
                nn.ReLU(inplace=True), conv7, nn.ReLU(inplace=True)]
     return layers
 
+def add_branch4_3():
+    layers = []
+    layers += [nn.Conv2d(512, 512,
+                         kernel_size=(1, 3)[False], stride=2, padding=1)]
+    return layers
 
 def add_extras(cfg, i, batch_norm=False):
     # Extra layers added to VGG for feature scaling
@@ -160,11 +175,17 @@ def add_extras(cfg, i, batch_norm=False):
     return layers
 
 
-def multibox(vgg, extra_layers, cfg, num_classes):
+def multibox(vgg, branch4_3_layers, extra_layers, cfg, num_classes):
     loc_layers = []
     conf_layers = []
-    vgg_source = [24, -2]
-    for k, v in enumerate(vgg_source):
+    vgg_source = [-2]
+    assert len(branch4_3_layers) == 1
+    for k, v in enumerate(branch4_3_layers):
+        loc_layers += [nn.Conv2d(v.out_channels,
+                                 cfg[k] * 4, kernel_size=3, padding=1)]
+        conf_layers += [nn.Conv2d(v.out_channels,
+                                 cfg[k] * num_classes, kernel_size=3, padding=1)]
+    for k, v in enumerate(vgg_source, 1):
         loc_layers += [nn.Conv2d(vgg[v].out_channels,
                                  cfg[k] * 4, kernel_size=3, padding=1)]
         conf_layers += [nn.Conv2d(vgg[v].out_channels,
@@ -174,7 +195,7 @@ def multibox(vgg, extra_layers, cfg, num_classes):
                                  * 4, kernel_size=3, padding=1)]
         conf_layers += [nn.Conv2d(v.out_channels, cfg[k]
                                   * num_classes, kernel_size=3, padding=1)]
-    return vgg, extra_layers, (loc_layers, conf_layers)
+    return vgg, branch4_3_layers, extra_layers, (loc_layers, conf_layers)
 
 
 base = {
@@ -201,5 +222,6 @@ def build_ssd(phase, size=300, num_classes=21):
         return
 
     return SSD(phase, *multibox(vgg(base[str(size)], 3),
+                                add_branch4_3(),
                                 add_extras(extras[str(size)], 1024),
                                 mbox[str(size)], num_classes), num_classes)
