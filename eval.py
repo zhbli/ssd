@@ -62,7 +62,7 @@ imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets', 'Main', '{:s}.t
 YEAR = '2007'
 devkit_path = VOCroot + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
-set_type = 'test'
+set_type = 'bird_test'
 
 class Timer(object):
     """A simple timer."""
@@ -249,7 +249,7 @@ cachedir: Directory for caching the annotations
     # read list of images
     with open(imagesetfile, 'r') as f:
         lines = f.readlines()
-    imagenames = [x.strip() for x in lines]
+    imagenames = [x.strip()[:-3] for x in lines if x.strip()[-3:]!=' -1']
     if not os.path.isfile(cachefile):
         # load annots
         recs = {}
