@@ -78,12 +78,14 @@ class SSD(nn.Module):
         # sources.append(s)
 
         # apply branch4_3 on layer conv4_3 relu
+        residual = self.L2Norm(x)
         for k, v in enumerate(self.branch4_3):
             if k == 0:
-                b = F.relu(v(x), inplace=True)
+                b = self.L2Norm(v(residual))
             else:
-                b = F.relu(v(b), inplace=True)
-        b = self.L2Norm(b)
+                assert k == 0, 'branch4_3 len must == 1'
+
+        b = F.relu(b + residual, inplace=True)
         sources.append(b)
 
         # apply vgg up to fc7
@@ -155,7 +157,7 @@ def vgg(cfg, i, batch_norm=False):
 def add_branch4_3():
     layers = []
     layers += [nn.Conv2d(512, 512,
-                         kernel_size=(1, 3)[False], stride=2, padding=1)]
+                         kernel_size=(1, 1), stride=1, padding=0)]
     return layers
 
 def add_extras(cfg, i, batch_norm=False):

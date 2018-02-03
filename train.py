@@ -26,10 +26,9 @@ parser.add_argument('--jaccard_threshold', default=0.5, type=float, help='Min Ja
 parser.add_argument('--batch_size', default=16, type=int, help='Batch size for training')
 parser.add_argument('--resume', default=None, type=str, help='Resume from checkpoint')
 parser.add_argument('--num_workers', default=2, type=int, help='Number of workers used in dataloading')
-parser.add_argument('--iterations', default=120000, type=int, help='Number of training iterations')
 parser.add_argument('--start_iter', default=0, type=int, help='Begin counting iterations starting from this value (should be used with resume)')
 parser.add_argument('--cuda', default=True, type=str2bool, help='Use cuda to train model')
-parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float, help='initial learning rate')
+parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float, help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--weight_decay', default=5e-4, type=float, help='Weight decay for SGD')
 parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for SGD')
@@ -50,17 +49,15 @@ cfg = (v1, v2)[args.version == 'v2']
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
-train_sets = [('2007', 'trainval'), ('2012', 'trainval')]
+train_sets = [('2007', 'bird_trainval'), ('2012', 'bird_trainval')]
 # train_sets = 'train'
 ssd_dim = 300  # only support 300 now
 means = (104, 117, 123)  # only support voc now
 num_classes = len(VOC_CLASSES) + 1
 batch_size = args.batch_size
-accum_batch_size = 32
-iter_size = accum_batch_size / batch_size
-max_iter = 120000
+max_iter = 12000
 weight_decay = 0.0005
-stepvalues = (80000, 100000, 120000)
+stepvalues = (8000, 10000, 12000)
 gamma = 0.1
 momentum = 0.9
 
@@ -150,6 +147,7 @@ def train():
     data_loader = data.DataLoader(dataset, batch_size, num_workers=args.num_workers,
                                   shuffle=True, collate_fn=detection_collate, pin_memory=True)
     for iteration in range(args.start_iter, max_iter):
+        t00 = time.time()
         if (not batch_iterator) or (iteration % epoch_size == 0):
             # create batch iterator
             batch_iterator = iter(data_loader)
@@ -178,6 +176,7 @@ def train():
         else:
             images = Variable(images)
             targets = [Variable(anno, volatile=True) for anno in targets]
+        t01 = time.time()
         # forward
         t0 = time.time()
         out = net(images)
@@ -191,8 +190,9 @@ def train():
         loc_loss += loss_l.data[0]
         conf_loss += loss_c.data[0]
         if iteration % 10 == 0:
-            print('Timer: %.4f sec.' % (t1 - t0))
-            print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
+            print('Preproccess Timer: %.4f sec.' % (t01 - t00), end=' ')
+            print('Net Timer: %.4f sec.' % (t1 - t0), end=' ')
+            print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss.data[0]))
             if args.visdom and args.send_images_to_visdom:
                 random_batch_index = np.random.randint(images.size(0))
                 viz.image(images.data[random_batch_index].cpu().numpy())

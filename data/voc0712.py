@@ -20,12 +20,13 @@ if sys.version_info[0] == 2:
 else:
     import xml.etree.ElementTree as ET
 
-VOC_CLASSES = (  # always index 0
-    'aeroplane', 'bicycle', 'bird', 'boat',
-    'bottle', 'bus', 'car', 'cat', 'chair',
-    'cow', 'diningtable', 'dog', 'horse',
-    'motorbike', 'person', 'pottedplant',
-    'sheep', 'sofa', 'train', 'tvmonitor')
+# VOC_CLASSES = (  # always index 0
+#     'aeroplane', 'bicycle', 'bird', 'boat',
+#     'bottle', 'bus', 'car', 'cat', 'chair',
+#     'cow', 'diningtable', 'dog', 'horse',
+#     'motorbike', 'person', 'pottedplant',
+#     'sheep', 'sofa', 'train', 'tvmonitor')
+VOC_CLASSES = {'bird'}
 
 # for making bounding boxes pretty
 COLORS = ((255, 0, 0, 128), (0, 255, 0, 128), (0, 0, 255, 128),
@@ -45,7 +46,7 @@ class AnnotationTransform(object):
         width (int): width
     """
 
-    def __init__(self, class_to_ind=None, keep_difficult=False):
+    def __init__(self, class_to_ind=None, keep_difficult=True):
         self.class_to_ind = class_to_ind or dict(
             zip(VOC_CLASSES, range(len(VOC_CLASSES))))
         self.keep_difficult = keep_difficult
@@ -65,7 +66,8 @@ class AnnotationTransform(object):
                 continue
             name = obj.find('name').text.lower().strip()
             bbox = obj.find('bndbox')
-
+            if name != 'bird':
+                continue
             pts = ['xmin', 'ymin', 'xmax', 'ymax']
             bndbox = []
             for i, pt in enumerate(pts):
@@ -111,7 +113,8 @@ class VOCDetection(data.Dataset):
         for (year, name) in image_sets:
             rootpath = os.path.join(self.root, 'VOC' + year)
             for line in open(os.path.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
-                self.ids.append((rootpath, line.strip()))
+                if line.strip()[-2:] != '-1':
+                    self.ids.append((rootpath, line.strip()[0:-3]))
 
     def __getitem__(self, index):
         im, gt, h, w = self.pull_item(index)

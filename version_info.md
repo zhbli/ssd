@@ -1,16 +1,15 @@
 # v0.0
-Original ssd.pytorch.
+Origin: multi_braches v1.0
 
-# v1.0
-Add one more conv layer at the finest feature map used for detection.
-The purpose is to make the prediction of small objects more independent from the following layers.
-In other word, we want to reduce the interference of following layers to the prediction of small objects.
-
-Usage: Run 'train.py'
+# v1.0  
+Only train on bird class using branch4_3.
 
 Change list:  
-- [Modify_function] ssd.py -> multibox: define conf/cls layers according to branch4_3
-- [Mddify_function] ssd.py -> SSD.__init__: generate ModuleList of added layer
-- [Modify_file] train.py: init added conv layer
-- [Modify_function] ssd.py -> SSD.forward: tile conf/cls layers onto branch4_3
-- [Add_function] ssd.py -> add_branch4_3
+- [Modify_file] train.py
+- [Modify_function] SSD.forward
+- [Modify_file] voc0712.py
+- [Modify_file] eval.py
+
+Result:  
+(iter=12000, batchsize=16, lr=5e-4)  
+AP for bird = 0.7473 (not good)
