@@ -89,24 +89,10 @@ class SSD(nn.Module):
 
         # apply multibox head to source layers
         for (x, l, c) in zip(sources, self.loc, self.conf):
-            loc.append(l(x).permute(0, 2, 3, 1).contiguous())
-            conf.append(c(x).permute(0, 2, 3, 1).contiguous())
+            loc.append(l(x).permute(0, 2, 3, 1).data.cpu().numpy().squeeze(axis=0))
+            conf.append(c(x).permute(0, 2, 3, 1).data.cpu().numpy().squeeze(axis=0))
+        return conf
 
-        loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
-        conf = torch.cat([o.view(o.size(0), -1) for o in conf], 1)
-        if self.phase == "test":
-            output = self.detect(
-                loc.view(loc.size(0), -1, 4),                   # loc preds
-                self.softmax(conf.view(-1, self.num_classes)),  # conf preds
-                self.priors.type(type(x.data))                  # default boxes
-            )
-        else:
-            output = (
-                loc.view(loc.size(0), -1, 4),
-                conf.view(conf.size(0), -1, self.num_classes),
-                self.priors
-            )
-        return output
 
     def load_weights(self, base_file):
         other, ext = os.path.splitext(base_file)
