@@ -11,3 +11,12 @@ Change list:
 - [Modify_function] SSD.forward  
 - [delete_file] test.py  
 - [delete_file] train.py
+
+# v2.0  
+Visualize detect_bbox of every prediction unit.  
+
+Usage: Run `visualize_response.py`  
+
+Change list:  
+- [Modify_file] visualize_response.py  
+- [Modify_file] detection.py

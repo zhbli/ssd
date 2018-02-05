@@ -3,7 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from layers import *
+from layers.box_utils import decode
 from data import v2
+from data import v2 as cfg
 import os
 
 
@@ -89,9 +91,12 @@ class SSD(nn.Module):
 
         # apply multibox head to source layers
         for (x, l, c) in zip(sources, self.loc, self.conf):
-            loc.append(l(x).permute(0, 2, 3, 1).data.cpu().numpy().squeeze(axis=0))
+            loc.append(l(x).permute(0, 2, 3, 1).contiguous())
             conf.append(c(x).permute(0, 2, 3, 1).data.cpu().numpy().squeeze(axis=0))
-        return conf
+
+        loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
+        boxes = decode(loc.view(loc.size(0), -1, 4)[0].data, self.priors.type(type(x.data)).data, cfg['variance'])
+        return conf, boxes
 
 
     def load_weights(self, base_file):
